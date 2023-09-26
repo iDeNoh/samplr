@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Preference</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+<button onclick="showInfo()" style="margin-left: 10px;">?</button><br>
+<div class="images-container">
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-button active" onclick="showTab('images')">Images</button>
+        <button class="tab-button" onclick="showTab('analytics')">Analytics</button>
+    </div>
+
+    <!-- Images Tab Content -->
+    <div id="images" class="tab-content">
+        <div class="images-row">
+            <img id="image1" src="" alt="Image 1" onclick="recordChoice('image1')" title="Click if you prefer this image">
+            <img id="image2" src="" alt="Image 2" onclick="recordChoice('image2')" title="Click if you prefer this image">
+        </div>
+        <div class="images-row">
+            <button onclick="recordChoice('identical')">Images are Identical</button>
+            <button onclick="recordChoice('doublebad')">Both images are BAD</button>
+        </div>
+    </div>
+    <!-- Analytics Tab Content -->
+    <div id="analytics" class="tab-content" style="display: none;">
+	<h2>Current Results</h2>
+	<div id="analysisGraph"></div> <!-- This div will hold the graph -->
+	    <script>
+		async function fetchAnalysisGraph() {
+		    const analysisContainer = document.getElementById('analysisGraph');
+		    const response = await fetch('/get-graph-data');
+		    const data = await response.json();
+
+		    const samplers = Object.keys(data.sampler_scores);
+		    const scores = Object.values(data.sampler_scores);
+
+		    Plotly.newPlot(analysisContainer, [{
+		        y: samplers,
+		        x: scores,
+		        type: 'bar'
+		    }], {
+		        title: 'Sampler Quality',
+		        yaxis: {
+		            title: 'Samplers'
+		        },
+		        xaxis: {
+		            title: 'Scores'
+		        }
+		    });
+		}
+
+		// Call the function to fetch and display the graph
+		fetchAnalysisGraph();
+	</script>
+    </div>
+</div>
+
+	<div class="overlay" onclick="hideInfo()" id="infoOverlay">
+	    <div class="info-box">
+		<h2>About This Website</h2>
+		<p>This website is designed to determine the overall quality of samplers in stable diffusion along with their minimum viable step count and preferred styles. You will be shown two images, click on either image to select it if you for ANY reason prefer it over the other, you can also note if the images are identical or if they are both equally bad. Subjective decisions are totally fine here, that's the point.</p>
+		<p>PLEASE NOTE: The only variables that might change from image to image is the sampler; every pair will be using the same prompt, step count, model, and CFG values, the only difference will be sampler. some will be...bad, thats expected and part of the expirement.</p>
+		<p>Click anywhere or press 'Escape' to close this info box.</p>
+	    </div>
+	</div>
+
+    <script>
+        async function fetchImages() {
+            const response = await fetch('/get-images');
+            const data = await response.json();
+            document.getElementById('image1').src = data.image1;
+            document.getElementById('image2').src = data.image2;
+        }
+        
+	async function recordChoice(choice) {
+	    const image1Path = document.getElementById('image1').src;
+	    const image2Path = document.getElementById('image2').src;
+	    const response = await fetch('/record-choice', {
+		method: 'POST',
+		headers: {
+		    'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ choice, image1Path, image2Path })
+	    });
+	    const result = await response.json();
+	    if (result.success) {
+		fetchImages(); // Fetch new images after recording the choice
+	    }
+	}
+	
+	function showTab(tabName) {
+		// Hide all tab contents
+		const contents = document.querySelectorAll('.tab-content');
+		for (let content of contents) {
+		    content.style.display = 'none';
+		}
+
+		// Deactivate all tab buttons
+		const buttons = document.querySelectorAll('.tab-button');
+		for (let button of buttons) {
+		    button.classList.remove('active');
+		}
+
+		// Show selected tab content and activate the button
+		document.getElementById(tabName).style.display = 'block';
+		const activeButton = Array.from(buttons).find(btn => btn.innerText.toLowerCase() === tabName);
+		activeButton.classList.add('active');
+    	}
+    	
+        function showInfo() {
+            document.getElementById('infoOverlay').style.display = 'block';
+        }
+        
+        function hideInfo() {
+            document.getElementById('infoOverlay').style.display = 'none';
+            document.getElementById('analysisOverlay').style.display = 'none';
+        }
+        
+        async function fetchAnalysisGraph() {
+		const analysisContainer = document.getElementById('analysisResult');
+		const response = await fetch('/get-graph-data');
+		const data = await response.json();
+
+		const samplers = Object.keys(data.sampler_scores);
+		const scores = Object.values(data.sampler_scores);
+
+		Plotly.newPlot(analysisContainer, [{
+		    x: samplers,
+		    y: scores,
+		    type: 'bar'
+		}], {
+		    title: 'Sampler Quality Analysis',
+		    xaxis: {
+		        title: 'Samplers'
+		    },
+		    yaxis: {
+		        title: 'Scores'
+		    }
+		});
+	}
+
+        // Close the info box when 'Escape' key is pressed
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                hideInfo();
+            }
+        });
+
+        // Fetch images on page load
+        fetchImages();
+        
+
+    </script>
+</body>
+</html>
+
